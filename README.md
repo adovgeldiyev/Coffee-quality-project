@@ -1,4 +1,4 @@
-#A Good Ole Cup of Joe: What Contributes to a Quality Cup
+# A Good Ole Cup of Joe: What Contributes to a Quality Cup<br>
 To determine what makes a good cup of coffee, there are a number of layers that one
 could analyze. There are an unimaginable number of influences from how the coffee beans are
 roasted all the way down to the chemical makeup of the coffee beans. With that context in
@@ -9,9 +9,9 @@ referred to as “cupper points.” Using this measure of cupper points to under
 quality of the coffee, our group sought to understand the factors that determined why some
 cups of coffee were better than others. More specifically, our group sought to understand what
 factors were most important in determining coffee quality, as well as beginning some
-exploratory analysis for how those factors affected one another.
-Software used:<br>
+exploratory analysis for how those factors affected one another.<br>
+### Software used:<br>
 R - Rstudio, Rscript and R markdown<br>
-Methods used:<br>
+### Methods used:<br>
 Regression Analysis, Principal Component Analysis, Factor Analysis, Canonical Correlation Analysis.<br>
-Authors: Adam Klaus, Jackie Prescott, Kris Varothai, Azat Dovgeldiyev 
+### Authors: Adam Klaus, Jackie Prescott, Kris Varothai and Azat Dovgeldiyev 
