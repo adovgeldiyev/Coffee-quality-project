@@ -1,0 +1,344 @@
+---
+title: "Hw3-Part 1"
+author: "Azat Dovgeldiyev"
+date: "8/14/2020"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+### Dependency
+```{r}
+library(car)
+library(DAAG)
+library(MASS)
+library(tidyverse)
+library(clusterGeneration)
+library(corrplot)
+library(Hmisc) #Describe Function
+library(psych) #Multiple Functions for Statistics and Multivariate Analysis
+library(GGally) #ggpairs Function
+library(ggplot2) #ggplot2 Functions
+library(vioplot) #Violin Plot Function
+library(corrplot) #Plot Correlations
+library(REdaS) #Bartlett's Test of Sphericity
+library(psych) #PCA/FA functions
+library(factoextra) #PCA Visualizations
+library("FactoMineR") #PCA functions
+library(ade4) #PCA Visualizations
+```
+
+```{r}
+coffee_data <- read.csv(file ="coffee_dataset.csv", header = TRUE, sep = ",")
+head(coffee_data)
+dim(coffee_data)
+sum(is.na(coffee_data))
+```
+```{r removin missing values}
+coffee_clean<- na.omit(coffee_data)
+dim(coffee_clean)
+head(coffee_clean)
+```
+```{r}
+summary(coffee_clean)
+```
+
+```{r species-> since the robusta type has only few, removing}
+coffee_clean <- coffee_clean[!(coffee_clean$Species=="Robusta"),]
+table(coffee_clean$Species)
+```
+
+```{r top 10 countries}
+coffee_clean %>% 
+  group_by(Country.of.Origin) %>% 
+  tally() %>% 
+  top_n(., 10) %>% 
+  arrange(desc(n))
+```
+
+```{r coffee color}
+table(coffee_clean$Color)
+```
+
+```{r density plots}
+library(dplyr)
+coffee_clean %>% 
+  mutate(id = row_number()) %>% 
+  select(X, Species, Cupper.Points) %>% 
+  ggplot(aes(Cupper.Points, fill = Species)) +
+  geom_density(alpha = 0.1)
+  # geom_histogram(position = "identity", alpha = 0.7, show.legend = FALSE)
+```
+
+```{r}
+library(corrplot)
+numbers <- coffee_clean[,c(13,21,22,23,24,25,26,27,28,29,30,31,32,33,34,36,42,43,44)]
+corrplot(cor(numbers, method = "spearman"), method = "square")
+```
+```{r top 10 certification}
+coffee_clean %>% 
+  group_by(Certification.Body) %>% 
+  tally() %>% 
+  top_n(., 10) %>% 
+  arrange(desc(n))
+```
+```{r converting character types into factors to make more readable}
+coffee_clean$Species <- factor(coffee_clean$Species,exclude = NULL)
+coffee_clean$Owner <- factor(coffee_clean$Owner,exclude = NULL)
+coffee_clean$Lot.Number <- factor(coffee_clean$Lot.Number,exclude = NULL)
+coffee_clean$Country.of.Origin <- factor(coffee_clean$Country.of.Origin,exclude = NULL)
+coffee_clean$Color <- factor(coffee_clean$Color,exclude = NULL)
+coffee_clean$Farm.Name <- factor(coffee_clean$Farm.Name,exclude = NULL)
+coffee_clean$Mill <- factor(coffee_clean$Mill,exclude = NULL)
+coffee_clean$ICO.Number <- factor(coffee_clean$ICO.Number,exclude = NULL)
+coffee_clean$Company <- factor(coffee_clean$Company,exclude = NULL)
+coffee_clean$Altitude <- factor(coffee_clean$Altitude,exclude = NULL)
+coffee_clean$Region <- factor(coffee_clean$Region,exclude = NULL)
+coffee_clean$Producer <- factor(coffee_clean$Producer,exclude = NULL)
+coffee_clean$Bag.Weight <- factor(coffee_clean$Bag.Weight,exclude = NULL)
+coffee_clean$In.Country.Partner <- factor(coffee_clean$In.Country.Partner,exclude = NULL)
+coffee_clean$Harvest.Year <- factor(coffee_clean$Harvest.Year,exclude = NULL)
+coffee_clean$Grading.Date <- factor(coffee_clean$Grading.Date,exclude = NULL)
+coffee_clean$Owner.1 <- factor(coffee_clean$Owner.1,exclude = NULL)
+coffee_clean$Variety <- factor(coffee_clean$Variety,exclude = NULL)
+coffee_clean$Processing.Method <- factor(coffee_clean$Processing.Method,exclude = NULL)
+coffee_clean$Expiration <- factor(coffee_clean$Expiration,exclude = NULL)
+coffee_clean$Certification.Body <- factor(coffee_clean$Certification.Body,exclude = NULL)
+coffee_clean$Certification.Address <- factor(coffee_clean$Certification.Address,exclude = NULL)
+coffee_clean$Certification.Contact <- factor(coffee_clean$Certification.Contact,exclude = NULL)
+coffee_clean$unit_of_measurement <- factor(coffee_clean$unit_of_measurement,exclude = NULL)
+```
+
+
+```{r will remove unnecessary columns}
+coffee_clean <- subset(coffee_clean, select = -c(Species))
+coffee_clean <- subset(coffee_clean, select = -c(Certification.Address,Certification.Contact))
+coffee_clean <- subset(coffee_clean, select = -c(X))
+coffee_clean <- subset(coffee_clean, select = -c(Owner, Owner.1))
+```
+
+```{r}
+summary(coffee_clean)
+```
+
+
+```{r to avoid any errors,i converted integers to numeric types. (LM might get confused)}
+coffee_clean <- transform(coffee_clean, Category.One.Defects = as.numeric(Category.One.Defects))
+coffee_clean <- transform(coffee_clean, Category.Two.Defects = as.numeric(Category.Two.Defects))
+coffee_clean <- transform(coffee_clean, Number.of.Bags = as.numeric(Number.of.Bags))
+str(coffee_clean)
+```
+
+#Getting started with PCA
+```{r}
+PCA_Plot = function(pcaData)
+{
+  library(ggplot2)
+  
+  theta = seq(0,2*pi,length.out = 100)
+  circle = data.frame(x = cos(theta), y = sin(theta))
+  p = ggplot(circle,aes(x,y)) + geom_path()
+  
+  loadings = data.frame(pcaData$rotation, .names = row.names(pcaData$rotation))
+  p + geom_text(data=loadings, mapping=aes(x = PC1, y = PC2, label = .names, colour = .names, fontface="bold")) +
+    coord_fixed(ratio=1) + labs(x = "PC1", y = "PC2")
+}
+
+PCA_Plot_Secondary = function(pcaData)
+{
+  library(ggplot2)
+  
+  theta = seq(0,2*pi,length.out = 100)
+  circle = data.frame(x = cos(theta), y = sin(theta))
+  p = ggplot(circle,aes(x,y)) + geom_path()
+  
+  loadings = data.frame(pcaData$rotation, .names = row.names(pcaData$rotation))
+  p + geom_text(data=loadings, mapping=aes(x = PC3, y = PC4, label = .names, colour = .names, fontface="bold")) +
+    coord_fixed(ratio=1) + labs(x = "PC3", y = "PC4")
+}
+
+PCA_Plot_Psyc = function(pcaData)
+{
+  library(ggplot2)
+  
+  theta = seq(0,2*pi,length.out = 100)
+  circle = data.frame(x = cos(theta), y = sin(theta))
+  p = ggplot(circle,aes(x,y)) + geom_path()
+  
+  loadings = as.data.frame(unclass(pcaData$loadings))
+  s = rep(0, ncol(loadings))
+  for (i in 1:ncol(loadings))
+  {
+    s[i] = 0
+    for (j in 1:nrow(loadings))
+      s[i] = s[i] + loadings[j, i]^2
+    s[i] = sqrt(s[i])
+  }
+  
+  for (i in 1:ncol(loadings))
+    loadings[, i] = loadings[, i] / s[i]
+  
+  loadings$.names = row.names(loadings)
+  
+  p + geom_text(data=loadings, mapping=aes(x = PC1, y = PC2, label = .names, colour = .names, fontface="bold")) +
+    coord_fixed(ratio=1) + labs(x = "PC1", y = "PC2")
+}
+
+PCA_Plot_Psyc_Secondary = function(pcaData)
+{
+  library(ggplot2)
+  
+  theta = seq(0,2*pi,length.out = 100)
+  circle = data.frame(x = cos(theta), y = sin(theta))
+  p = ggplot(circle,aes(x,y)) + geom_path()
+  
+  loadings = as.data.frame(unclass(pcaData$loadings))
+  s = rep(0, ncol(loadings))
+  for (i in 1:ncol(loadings))
+  {
+    s[i] = 0
+    for (j in 1:nrow(loadings))
+      s[i] = s[i] + loadings[j, i]^2
+    s[i] = sqrt(s[i])
+  }
+  
+  for (i in 1:ncol(loadings))
+    loadings[, i] = loadings[, i] / s[i]
+  
+  loadings$.names = row.names(loadings)
+  
+  print(loadings)
+  p + geom_text(data=loadings, mapping=aes(x = PC3, y = PC4, label = .names, colour = .names, fontface="bold")) +
+    coord_fixed(ratio=1) + labs(x = "PC3", y = "PC4")
+}
+```
+
+# pca only with numbers that have direct impact on coffee
+```{r}
+pca_numbers <- coffee_clean[,c(17,18,19,20,21,22,23,24,25,26,28,
+                               29,30,32)]
+KMO(pca_numbers)
+```
+
+```{r}
+bart_spher(pca_numbers) #samples are not equal to zero, we can run model
+```
+```{r}
+alpha(pca_numbers, check.keys = TRUE)# test for reliability analysis using Cronbach's alpha
+```
+```{r}
+comp <- fa.parallel(pca_numbers)
+comp
+```
+```{r}
+p <- prcomp(pca_numbers, center = T, scale = T)
+plot(p)
+abline(1,0)
+
+```
+
+
+```{r}
+PCA_Plot(p)
+biplot(p)
+```
+
+```{r}
+p2 = psych::principal(pca_numbers, rotate="varimax", nfactors=3, scores=TRUE)
+p2 
+print(p2$loadings, cutoff=.4, sort=T)
+```
+```{r}
+p2$values
+table(p2$values>1)
+```
+```{r}
+scores <- p2$scores
+scores_1 <- scores[,1]
+
+min_score <- min(scores_1)
+min_score
+
+max_score <- max(scores_1)
+max_score
+summary(scores_1)
+scores_2 <- scores[,2]
+```
+```{r}
+fit = factanal(pca_numbers, 3)
+print(fit$loadings, cutoff=.4, sort=T)
+summary(fit)
+```
+
+```{r}
+p3 <- prcomp(pca_numbers, scale = TRUE) 
+fviz_eig(p3)
+
+#PCA Individuals
+pI<-fviz_pca_ind(p3,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+)
+pI
+```
+```{r}
+pca_var<-fviz_pca_var(p3,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+)
+
+pca_var
+```
+
+```{r}
+p4 <- PCA(pca_numbers, graph = FALSE)
+#IF graph is set to true, it will provide the individual and variable maps
+
+#Shows all the objects or functions available in PCA
+print(p4)
+
+#Options for providing screeplot
+fviz_eig(p4, addlabels = TRUE, ylim = c(0, 50))
+fviz_screeplot(p4, addlabels = TRUE, ylim = c(0, 50))
+
+variables <- get_pca_var(p4)
+```
+```{r}
+head(variables$contrib,11)
+corrplot(variables$contrib, is.corr = FALSE)
+```
+```{r}
+# Contributions of variables to PC1
+fviz_contrib(p4, choice = "var", axes = 1, top = 10)
+# Contributions of variables to PC2
+fviz_contrib(p4, choice = "var", axes = 2, top = 10)
+```
+```{r}
+p5 <- dudi.pca(pca_numbers,
+               scannf = FALSE,   # Hide scree plot
+               nf = 3          # Number of components kept in the results
+)
+fviz_screeplot(p5, addlabels = TRUE, ylim = c(0, 50))
+
+variables2 <- get_pca_var(p5)
+#Which variables contibute the most to the PCs?
+#there are ll variables
+head(variables2$contrib, 11)
+
+```
+
+```{r}
+corrplot(variables2$contrib, is.corr = FALSE)
+```
+
